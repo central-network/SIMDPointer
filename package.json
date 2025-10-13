@@ -1,0 +1,22 @@
+{
+  "name": "simdpointer",
+  "version": "1.0.0",
+  "description": "Native Javascript values managed by Numbers over local shared memory.",
+  "main": "SIMDPointer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/central-network/SIMDPointer.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/central-network/SIMDPointer/issues"
+  },
+  "homepage": "https://github.com/central-network/SIMDPointer#readme",
+  "dependencies": {
+    "localsharedmemory": "^1.0.0"
+  }
+}

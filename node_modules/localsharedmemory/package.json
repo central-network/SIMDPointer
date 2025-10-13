@@ -1,0 +1,20 @@
+{
+  "name": "localsharedmemory",
+  "version": "1.0.0",
+  "description": "<p align=\"center\">   <br />   <strong><code>LocalSharedMemory</code></strong>   <br />   A micro-library that brings C-style <code>malloc</code> and intuitive memory management to JavaScript's <code>SharedArrayBuffer</code> and <code>WebAssembly.Memory</code>. </p>",
+  "homepage": "https://github.com/central-network/LocalSharedMemory#readme",
+  "bugs": {
+    "url": "https://github.com/central-network/LocalSharedMemory/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/central-network/LocalSharedMemory.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "LocalSharedMemory.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
