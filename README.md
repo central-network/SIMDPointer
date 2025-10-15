@@ -1,4 +1,4 @@
-# 🚀 SIMDPointer.js 🚀
+# 🚀 SIMDPointer 🚀
 
 [![NPM version](https://img.shields.io/npm/v/simdpointer.svg)](https://www.npmjs.com/package/simdpointer)
 [![License](https://img.shields.io/npm/l/simdpointer.svg)](https://github.com/central-network/SIMDPointer/blob/main/LICENSE)
