@@ -37,7 +37,7 @@ Working directly with `SharedArrayBuffer` can be complex. It requires manual tra
 Since it's a single module, just import it into your project.
 
 ```javascript
-import LocalSharedMemory from "./LocalSharedMemory.js";
+import LocalSharedMemory from "./node_modules/LocalSharedMemory/index.js";
 ```
 
 ### 2. Usage Example

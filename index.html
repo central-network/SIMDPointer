@@ -1,0 +1,20 @@
+<meta charset="utf8" />
+<script type="importmap">{ 
+    "imports": { 
+        "LocalSharedMemory": "./node_modules/localsharedmemory/index.js", 
+        "BigVec": "./node_modules/bigvec/index.js"
+    }}
+</script>
+
+<script type="module">
+    import Pointer from "./index.js"
+    
+    console.warn({Pointer})
+    console.warn(self.temp1 = Pointer.v128.TypedArray.from([crypto.randomUUID(), crypto.randomUUID()]))
+
+    const debug = temp1.debug()
+
+    console.warn(debug.at(0), debug.at(0).toUUID(), debug.at(0).toString())
+    console.warn(debug.at(1), debug.at(1).toUUID(), debug.at(1).toString())
+
+</script>
