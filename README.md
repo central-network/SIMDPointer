@@ -1,9 +1,18 @@
 # 🚀 SIMDPointer 🚀
 
-[![NPM version](https://img.shields.io/npm/v/simdpointer.svg)](https://www.npmjs.com/package/simdpointer)
-[![License](https://img.shields.io/npm/l/simdpointer.svg)](https://github.com/central-network/SIMDPointer/blob/main/LICENSE)
+<p align="center">
+  <br />
+  <strong><code>SIMDPointer</code></strong>
+  <br />
+   A revolutionary library that brings <code>low-level</code> memory management and powerful <code>128-bit primitives</code> to the JavaScript world. We provide a novel way to work with native JavaScript values, managed by pointers over a local <code>shared memory</code> buffer. This is not just another library; it's a new paradigm for high-performance computing in JS.
+</p>
 
-Welcome to **SIMDPointer.js**, a revolutionary library that brings low-level memory management and powerful 128-bit primitives to the JavaScript world. We provide a novel way to work with native JavaScript values, managed by pointers over a local shared memory buffer. This is not just another library; it's a new paradigm for high-performance computing in JS.
+<p align="center">
+  <a href="NPM"><img src="https://img.shields.io/npm/v/simdpointer.svg" alt="NPM Package"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+</p>
+
+---
 
 ## ✨ The Art of Intelligence ✨
 
