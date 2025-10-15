@@ -1,7 +1,7 @@
 # 🚀 SIMDPointer 🚀
 
 [![NPM version](https://img.shields.io/npm/v/simdpointer.svg)](https://www.npmjs.com/package/simdpointer)
-[![License](https://img.shields.io/npm/l/simdpointer.svg)](https://github.com/central-network/SIMDPointer/LICENSE)
+[![License](https://img.shields.io/npm/l/simdpointer.svg)](https://github.com/central-network/SIMDPointer/blob/main/LICENSE)
 
 Welcome to **SIMDPointer.js**, a revolutionary library that brings low-level memory management and powerful 128-bit primitives to the JavaScript world. We provide a novel way to work with native JavaScript values, managed by pointers over a local shared memory buffer. This is not just another library; it's a new paradigm for high-performance computing in JS.
 
