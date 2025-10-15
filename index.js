@@ -28,7 +28,7 @@ export class Pointer extends OffsetPointer {
             byteOffset  : byteOffset,
             byteLength  : byteLength,
             buffer      : buffer,
-            arrayView   : new TypedArray( memory.buffer, byteOffset, length )
+            data        : new TypedArray( memory.buffer, byteOffset, length )
         };
     }
 }
@@ -36,6 +36,24 @@ export class Pointer extends OffsetPointer {
 class TypedNumber extends Pointer {
     constructor (byteOffset = new.target.malloc(new.target.BYTES_PER_ELEMENT)) {
         super(byteOffset);
+    }
+
+    static of () {
+        const value         = this.encoder(arguments[0]);
+        const object        = this.adapter.of(value);
+        const byteLength    = this.BYTES_PER_ELEMENT;
+        const byteOffset    = memory.malloc( byteLength );
+
+        const sourceView    = new Uint8Array(object.buffer);
+        const targetView    = new Uint8Array(memory.buffer, byteOffset, byteLength);
+
+        targetView.set(sourceView);
+
+        return new this(byteOffset);
+    }
+
+    value () {
+        return this.getter( this );
     }
 }
 
@@ -51,13 +69,24 @@ class TypedArray extends Pointer {
 
         targetView.set(sourceView);
 
-        arguments[0].forEach( v => console.log(v) )
+        return new this(byteOffset);
+    }
+
+    static random () {
+        const length        = arguments[0] || 1;
+        const byteLength    = length * this.BYTES_PER_ELEMENT;
+        const byteOffset    = memory.malloc( byteLength );
+
+        const sourceView    = crypto.getRandomValues(new Uint8Array(byteLength));
+        const targetView    = new Uint8Array(memory.buffer, byteOffset, byteLength);
+
+        targetView.set(sourceView);
 
         return new this(byteOffset);
     }
 
     debug () {
-        return this["{{Debugger}}"].arrayView
+        return this["{{Debugger}}"].data
     }
 }
 
@@ -65,7 +94,7 @@ const u8 = {
     BYTES_PER_ELEMENT : 1,
     adapter : Uint8Array,
     encoder : parseInt,
-    NumberType : class Uint8Number extends TypedNumber {},
+    TypedNumber : class Uint8Number extends TypedNumber {},
     TypedArray : class Uint8Array extends TypedArray {},
     labels : {
         long : "Uint8",
@@ -73,8 +102,8 @@ const u8 = {
         array : "Uint8Array",
         wasm : "i32"
     },
-    getter : DataView.prototype.getUint8,
-    setter : DataView.prototype.setUint8,
+    getter : "getUint8",
+    setter : "setUint8",
     loader : "i32.load8_u",
     storer : "i32.store8",
     maximum : 255,
@@ -85,7 +114,7 @@ const i8 = {
     BYTES_PER_ELEMENT : 1,
     adapter : Int8Array,
     encoder : parseInt,
-    NumberType : class Int8Number extends TypedNumber {},
+    TypedNumber : class Int8Number extends TypedNumber {},
     TypedArray : class Int8Array extends TypedArray {},
     labels : {
         long : "Int8",
@@ -93,8 +122,8 @@ const i8 = {
         array : "Int8Array",
         wasm : "i32"
     },
-    getter : DataView.prototype.getInt8,
-    setter : DataView.prototype.setInt8,
+    getter : "getInt8",
+    setter : "setInt8",
     loader : "i32.load8_s",
     storer : "i32.store8",
     maximum : 127,
@@ -105,7 +134,7 @@ const u16 = {
     BYTES_PER_ELEMENT : 2,
     adapter : Uint16Array,
     encoder : parseInt,
-    NumberType : class Uint16Number extends TypedNumber {},
+    TypedNumber : class Uint16Number extends TypedNumber {},
     TypedArray : class Uint16Array extends TypedArray {},
     labels : {
         long : "Uint16",
@@ -113,8 +142,8 @@ const u16 = {
         array : "Uint16Array",
         wasm : "i32"
     },
-    getter : DataView.prototype.getUint16,
-    setter : DataView.prototype.setUint16,
+    getter : "getUint16",
+    setter : "setUint16",
     loader : "i32.load16_u",
     storer : "i32.store16",
     maximum : 65535,
@@ -126,7 +155,7 @@ const i16 = {
     BYTES_PER_ELEMENT : 2,
     adapter : Int16Array,
     encoder : parseInt,
-    NumberType : class Int16Number extends TypedNumber {},
+    TypedNumber : class Int16Number extends TypedNumber {},
     TypedArray : class Int16Array extends TypedArray {},
     labels : {
         long : "Int16",
@@ -134,8 +163,8 @@ const i16 = {
         array : "Int16Array",
         wasm : "i32"
     },
-    getter : DataView.prototype.getInt16,
-    setter : DataView.prototype.setInt16,
+    getter : "getInt16",
+    setter : "setInt16",
     loader : "i32.load16_s",
     storer : "i32.store16",
     maximum : 32767,
@@ -146,7 +175,7 @@ const u32 = {
     BYTES_PER_ELEMENT : 4,
     adapter : Uint32Array,
     encoder : parseInt,
-    NumberType : class Uint32Number extends TypedNumber {},
+    TypedNumber : class Uint32Number extends TypedNumber {},
     TypedArray : class Uint32Array extends TypedArray {},
     labels : {
         long : "Uint32",
@@ -154,8 +183,8 @@ const u32 = {
         array : "Uint32Array",
         wasm : "i32"
     },
-    getter : DataView.prototype.getUint32,
-    setter : DataView.prototype.setUint32,
+    getter : "getUint32",
+    setter : "setUint32",
     loader : "i32.load",
     storer : "i32.store",   
     maximum : 4294967295,
@@ -166,7 +195,7 @@ const i32 = {
     BYTES_PER_ELEMENT : 4,
     adapter : Int32Array,
     encoder : parseInt,
-    NumberType : class Int32Number extends TypedNumber {},
+    TypedNumber : class Int32Number extends TypedNumber {},
     TypedArray : class Int32Array extends TypedArray {},
     labels : {
         long : "Int32",
@@ -174,8 +203,8 @@ const i32 = {
         array : "Int32Array",
         wasm : "i32"
     },
-    getter : DataView.prototype.getInt32,
-    setter : DataView.prototype.setInt32,
+    getter : "getInt32",
+    setter : "setInt32",
     loader : "i32.load",
     storer : "i32.store",
     maximum : 2147483647,
@@ -186,7 +215,7 @@ const u64 = {
     BYTES_PER_ELEMENT : 8,
     adapter : BigUint64Array, 
     encoder : BigInt,  
-    NumberType : class BigUint64Number extends TypedNumber {},
+    TypedNumber : class BigUint64Number extends TypedNumber {},
     TypedArray : class BigUint64Array extends TypedArray {},
     labels : {
         long : "BigUint64",
@@ -194,8 +223,8 @@ const u64 = {
         array : "BigUint64Array",
         wasm : "i64"
     },
-    getter : DataView.prototype.getBigUint64,
-    setter : DataView.prototype.setBigUint64,
+    getter : "getBigUint64",
+    setter : "setBigUint64",
     loader : "i64.load",
     storer : "i64.store",
     maximum : 18446744073709551615n,
@@ -206,7 +235,7 @@ const i64 = {
     BYTES_PER_ELEMENT : 8,
     adapter : BigInt64Array,
     encoder : BigInt,
-    NumberType : class BigInt64Number extends TypedNumber {},
+    TypedNumber : class BigInt64Number extends TypedNumber {},
     TypedArray : class BigInt64Array extends TypedArray {},
     labels : {
         long : "BigInt64",
@@ -214,8 +243,8 @@ const i64 = {
         array : "BigInt64Array",
         wasm : "i64"
     },
-    getter : DataView.prototype.getBigInt64,
-    setter : DataView.prototype.setBigInt64,
+    getter : "getBigInt64",
+    setter : "setBigInt64",
     loader : "i64.load",
     storer : "i64.store",
     maximum : 9223372036854775807n, 
@@ -226,7 +255,7 @@ const f32 = {
     BYTES_PER_ELEMENT : 4,
     adapter : Float32Array,
     encoder : parseFloat,
-    NumberType : class Float32Number extends TypedNumber {},
+    TypedNumber : class Float32Number extends TypedNumber {},
     TypedArray : class Float32Array extends TypedArray {},
     labels : {
         long : "Float32",
@@ -234,8 +263,8 @@ const f32 = {
         array : "Float32Array",
         wasm : "f32"
     },
-    getter : DataView.prototype.getFloat32,
-    setter : DataView.prototype.setFloat32,
+    getter : "getFloat32",
+    setter : "setFloat32",
     loader : "f32.load",
     storer : "f32.store",
     maximum : 3.4028234663852886e+38,   
@@ -246,7 +275,7 @@ const f64 = {
     BYTES_PER_ELEMENT : 8,
     adapter : Float64Array, 
     encoder : parseFloat,
-    NumberType : class Float64Number extends TypedNumber {},
+    TypedNumber : class Float64Number extends TypedNumber {},
     TypedArray : class Float64Array extends TypedArray {},
     labels : {
         long : "Float64",
@@ -254,8 +283,8 @@ const f64 = {
         array : "Float64Array",
         wasm : "f64"
     },
-    getter : DataView.prototype.getFloat64,
-    setter : DataView.prototype.setFloat64,
+    getter : "getFloat64",
+    setter : "setFloat64",
     loader : "f64.load",
     storer : "f64.store",
     maximum : 1.7976931348623157e+308,
@@ -266,7 +295,7 @@ const v128 = {
     BYTES_PER_ELEMENT : 16,
     adapter : BigVec128Array,
     encoder : BigVec,
-    NumberType : class BigVec128Number extends TypedNumber {},
+    TypedNumber : class BigVec128Number extends TypedNumber {},
     TypedArray : class BigVec128Array extends TypedArray {},
     labels : {
         long : "BigVec128",
@@ -274,8 +303,8 @@ const v128 = {
         array : "BigVec128Array",
         wasm : "v128"
     },
-    getter : DataView.prototype.getBigVec128,
-    setter : DataView.prototype.setBigVec128,
+    getter : "getBigVec128",
+    setter : "setBigVec128",
     loader : "v128.load",
     storer : "v128.store",
     maximum : "",
@@ -301,7 +330,24 @@ for (const type in exports) {
         adapter : { value: exports[type].adapter },
         encoder : { value: exports[type].encoder },
         BYTES_PER_ELEMENT : { value: exports[type].BYTES_PER_ELEMENT },
-    })
+    });
+
+    Object.defineProperties( exports[type].TypedNumber, {
+        adapter : { value: exports[type].adapter },
+        encoder : { value: exports[type].encoder },
+        BYTES_PER_ELEMENT : { value: exports[type].BYTES_PER_ELEMENT },
+    });
+
+    Object.defineProperties( exports[type].TypedNumber.prototype, {
+        adapter : { value: exports[type].adapter },
+        encoder : { value: exports[type].encoder },
+        getter  : { value: memory[ exports[type].getter ].bind(memory) },
+        setter  : { value: memory[ exports[type].setter ].bind(memory) },
+        BYTES_PER_ELEMENT : { value: exports[type].BYTES_PER_ELEMENT },
+    });
+
+    exports[ exports[type].TypedArray.name ] = exports[type].TypedArray;
+    exports[ exports[type].TypedNumber.name ] = exports[type].TypedNumber;
 }
 
 export default Object.defineProperties( Pointer, Object.getOwnPropertyDescriptors(exports) );
