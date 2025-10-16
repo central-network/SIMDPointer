@@ -10,20 +10,25 @@
     import SIMD from "./index.js"
     
     console.warn({SIMD})
-    console.warn(self.temp1 = SIMD.BigVec128Array.random(4))
+    console.warn(self.temp1 = SIMD.BigVec128Values.random(4))
 
     const debug = temp1.debug()
 
     console.warn(debug.at(0), debug.at(0).toUUID(), debug.at(0).toString())
     console.warn(debug.at(1), debug.at(1).toUUID(), debug.at(1).toString())
 
-    console.warn(self.temp2 = SIMD.Uint32Array.random(4))
+    console.warn(self.temp2 = SIMD.Uint32Values.random(4))
 
     const rand128 = crypto.randomUUID();
     console.warn(self.temp3 = SIMD.BigVec128Number.of( rand128 ), rand128, self.temp3.value(), self.temp3.value().toString())
 
     const randf64 = 4211135.125124312;
     console.warn(self.temp4 = SIMD.Float64Number.of( randf64 ), randf64, self.temp4.value(), self.temp4.value().toString())
+
+    const values = [ true, 2, temp2, temp3, new String("hi"), "", 0n, 0, Symbol.for("kSymbol"), Uint32Array.of(24), 9007199254740991, 4211135.125124312, temp4, null, undefined, "hello", 3.14, -4, BigInt(9007199254741991), /\w+/g, new Date() ];
+    values.forEach( v => {
+        const n = SIMD.encode(v);
+    })
 
 
 </script>
