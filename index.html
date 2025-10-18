@@ -18,27 +18,15 @@
     console.log({SIMD}, extern)
 
     requestIdleCallback(async () => {
-        console.log("\n".repeat(2))
         const a = e => 1;
         const d = async e => 1;
         
 
-        const values = [self, window, location]; //[ 2, "özgür", new Date(), location, new Array(2).fill().map(Math.random), alert, console.log, function b() { return 2; }, async d2 => 2, async () => {}, async function df () {}, d, Array(2).values() ];
+        const values = [self, location, window, navigator, navigator.gpu, await navigator.gpu.requestAdapter()]; //[ 2, "özgür", new Date(), location, new Array(2).fill().map(Math.random), alert, console.log, function b() { return 2; }, async d2 => 2, async () => {}, async function df () {}, d, Array(2).values() ];
 
         values.forEach( v => {
             const n = SIMD.encode(v);
             console.log(n)
-        })
-
-        requestIdleCallback(() => {
-            console.log("\n".repeat(2))
-            console.log(prototypes)
-            
-            for (const proto of prototypes) {
-                const name = proto.name || proto[Symbol.toStringTag] || proto.constructor?.name || (proto === Object.prototype && "Object" || "");
-    
-                console.log(name, strtoconst(name, "", "_object"))
-            }
         })
     })
 
