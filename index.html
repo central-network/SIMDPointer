@@ -1,34 +1,48 @@
 <meta charset="utf8" />
-<script type="importmap">{ 
+ <script type="importmap">{ 
     "imports": { 
         "LocalSharedMemory": "./node_modules/localsharedmemory/index.js", 
         "BigVec": "./node_modules/bigvec/index.js"
     }}
 </script>
 
+<script>
+    let line = 0;
+    self.console.debug = function (a) {
+        document.body.insertAdjacentHTML("beforeend", `<pre style="color: green; font-size: 12px; margin: 3px 14px;">debug(${++line}): ${[...arguments].map(v => v.message || JSON.stringify(v, null, 2))}</pre>`)
+    }
+</script>
+
 <script type="module">
-    import SIMD from "./index.js"
+    import SIMD, {prototypes, constructors, strtoconst, extern} from "./index.js"
+    console.log({SIMD}, extern)
+
+    requestIdleCallback(async () => {
+        console.log("\n".repeat(2))
+        const a = e => 1;
+        const d = async e => 1;
+        
+
+        const values = [self, window, location]; //[ 2, "özgür", new Date(), location, new Array(2).fill().map(Math.random), alert, console.log, function b() { return 2; }, async d2 => 2, async () => {}, async function df () {}, d, Array(2).values() ];
+
+        values.forEach( v => {
+            const n = SIMD.encode(v);
+            console.log(n)
+        })
+
+        requestIdleCallback(() => {
+            console.log("\n".repeat(2))
+            console.log(prototypes)
+            
+            for (const proto of prototypes) {
+                const name = proto.name || proto[Symbol.toStringTag] || proto.constructor?.name || (proto === Object.prototype && "Object" || "");
     
-    console.warn({SIMD})
-    console.warn(self.temp1 = SIMD.BigVec128Values.random(4))
-
-    const debug = temp1.debug()
-
-    console.warn(debug.at(0), debug.at(0).toUUID(), debug.at(0).toString())
-    console.warn(debug.at(1), debug.at(1).toUUID(), debug.at(1).toString())
-
-    console.warn(self.temp2 = SIMD.Uint32Values.random(4))
-
-    const rand128 = crypto.randomUUID();
-    console.warn(self.temp3 = SIMD.BigVec128Number.of( rand128 ), rand128, self.temp3.value(), self.temp3.value().toString())
-
-    const randf64 = 4211135.125124312;
-    console.warn(self.temp4 = SIMD.Float64Number.of( randf64 ), randf64, self.temp4.value(), self.temp4.value().toString())
-
-    const values = [ true, 2, temp2, temp3, new String("hi"), "", 0n, 0, Symbol.for("kSymbol"), Uint32Array.of(24), 9007199254740991, 4211135.125124312, temp4, null, undefined, "hello", 3.14, -4, BigInt(9007199254741991), /\w+/g, new Date() ];
-    values.forEach( v => {
-        const n = SIMD.encode(v);
+                console.log(name, strtoconst(name, "", "_object"))
+            }
+        })
     })
+
+    
 
 
 </script>

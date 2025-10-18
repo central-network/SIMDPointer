@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/central-network/SIMDPointer#readme",
   "dependencies": {
-    "bigvec": "^1.0.0",
+    "bigvec": "^1.1.2",
     "localsharedmemory": "^1.0.4"
   }
 }

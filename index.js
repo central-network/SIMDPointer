@@ -1,12 +1,13 @@
 import LocalSharedMemory from "LocalSharedMemory"
 import { BigVec, BigVec128Array } from "BigVec"
 
-export const memory = new LocalSharedMemory();
-
-export const pointers = new WeakMap()
+export const memory     = new LocalSharedMemory();
+export const pointers   = new WeakMap()
 
 export class OffsetPointer extends Number {
     static memory = memory;
+
+    constructor () { Object.freeze(super(...arguments)) }
 
     static malloc (byteLength, alignSize) {
         return new this( memory.malloc(byteLength, alignSize) );
@@ -19,27 +20,58 @@ export const strtoint = str => {
     ).reduce((v,p) => v + p, 0) >>> 0;
 };
 
-export const strtotype = (name) => {
+export const strtoconst = (name, prefix = "", suffix = "") => {
+    const label     = `${prefix}${name}${suffix}`.split("").map((c,i,t) => {
+        if (i && c === c.toUpperCase()) {            
+            const p = t[i-1]; 
+            if (p !== p.toUpperCase() && p !== "_" && c !== "_") {
+                return "_" + c;
+            }
+        }
+        return c;
+    }).join("").toUpperCase();
+    
     const prototype = Reflect.get(Number, "prototype");
-    const value     = Reflect.apply(strtoint, null, [name]);
-    const label     = Reflect.apply(String.prototype.toUpperCase, name, self);
+    const value     = Reflect.apply(strtoint, null, [label]);
     const instance  = Reflect.construct(Number, [value]);
     const type      = Reflect.apply(Object.create, null, [prototype]);
     const kName     = Reflect.get(Symbol, "toStringTag");
-    const toString  = Reflect.construct(Function, ["return this.label"])
-    const toNumber  = Reflect.construct(Function, ["return this.value"])
 
     Reflect.defineProperty(type, kName, { value: label });
-    Reflect.defineProperty(type, "label", { value: label })
-    Reflect.defineProperty(type, "name", { value: name })
-    Reflect.defineProperty(type, "value", { value: value })
-    Reflect.defineProperty(type, "valueOf", { value: toNumber });
-    Reflect.defineProperty(type, "toString", { value: toString })
+    Reflect.defineProperty(type, "label", { value: label });
+    Reflect.defineProperty(type, "name", { value: name });
+    Reflect.defineProperty(type, "value", { value: value });
+    Reflect.defineProperty(type, "valueOf", { value: function valueOf () { return this.value; } });
+    Reflect.defineProperty(type, "toString", { value: function toString () { return this.label; } })
 
     Reflect.apply(Object.create, null, [instance]);
     Reflect.setPrototypeOf(instance, type);
 
+    Object.seal(instance);
+
     return instance;
+}
+
+export const strtoclass = (name, extend) => {
+    const prototype = Reflect.get(extend, "prototype");
+    const value     = Reflect.apply(strtoint, null, [name]);
+    const instance  = Reflect.construct(Number, [value]);
+    const type      = Reflect.apply(Object.create, null, [prototype]);
+    const kName     = Reflect.get(Symbol, "toStringTag");
+
+    Reflect.defineProperty(type, kName, { value: name });
+    Reflect.defineProperty(type, "label", { value: name });
+    Reflect.defineProperty(type, "name", { value: name });
+    Reflect.defineProperty(type, "value", { value: value });
+    Reflect.defineProperty(type, "valueOf", { value: function valueOf () { return this.value; } });
+    Reflect.defineProperty(type, "toString", { value: function toString () { return this.label; } })
+    
+    Reflect.apply(Object.create, null, [instance]);
+    Reflect.setPrototypeOf(instance, type);
+
+    Reflect.defineProperty(instance.constructor, "proto", { value: type });
+
+    return instance.constructor;
 }
 
 export const primitives = Object.fromEntries([
@@ -51,7 +83,7 @@ export const primitives = Object.fromEntries([
     "bigint",
     "symbol",
     "function",
-].map(v => [v, strtotype(v)]));
+].map(v => [v, strtoconst(v, "typeof_")]));
 
 export const constructors = Object.fromEntries([
     "Array",
@@ -155,15 +187,19 @@ export const constructors = Object.fromEntries([
     "IDBOpenDBRequest", 
     "MessageChannel",
     "WebSocket",
-].map(v => [v, strtotype(v)]));
+].map(v => [v, strtoconst(v, "", "_object")]));
 
 const encodeText = TextEncoder.prototype.encode.bind(new TextEncoder);
 
-export const encodeEmpty = value => {
+export const kObject            = Symbol("kObject"); 
+
+export const prototypes         = new Array();
+
+export const encodeEmpty        = value => {
     return Int8Array.of(value)
 }
 
-export const encodeString = value => {
+export const encodeString       = value => {
     if (!value) { return encodeEmpty(-4); }
 
     const string = String(value);
@@ -180,7 +216,7 @@ export const encodeString = value => {
     return bufferView;
 }
 
-export const encodeNumber = value => {
+export const encodeNumber       = value => {
     if (!value) { return encodeEmpty(-3); }
 
     const number        = Number(value);
@@ -253,18 +289,91 @@ export const encodeNumber = value => {
     return bufferView;
 }
 
-export const encodeBigInt = value => {
+export const encodeBigInt       = value => {
     if (!value) { return encodeEmpty(-5); }
     if ( value < 0 ) { return new Uint8Array(BigInt64Array.of(value).buffer) }
     return new Uint8Array(BigUint64Array.of(value).buffer)
 }
 
-export const encodeArrayView = value => {
+export const encodeArrayView    = value => {
     return new Uint8Array(value.buffer, value.byteOffset, value.byteLength).slice();
 }
 
-export const encodeObject = value => {
+export const encodeDescriptors  = value => {
+    
+    if (prototypes.includes(value) === true) {
+        return
+    }
+
+    prototypes.push(value);
+    
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    console.warn("encoding descriptors...", descriptors)
+
+    for(const property in descriptors) {
+
+        const descriptor = descriptors[property];
+
+        if (property === "constructor") {
+            encodeConstructor( descriptor.value );
+            continue;
+        }
+
+        if (property === "prototype") {
+            encodePrototype( descriptor.value );
+            continue;
+        }
+
+        const {
+            enumerable,
+            writable,
+            configurable,
+            value: val,
+            get, 
+            set
+        } = descriptor;
+
+        console.log(`${value.name || ' '}`, property.padEnd(20, " "), { value: val, get, set }, {enumerable, writable, configurable}) 
+
+        if (typeof val !== "undefined") encode(val);
+        if (typeof get !== "undefined") encode(get);
+        if (typeof set !== "undefined") encode(set);
+    }
+}
+
+export const encodeClassExtends = value => {
+    console.warn("\tencoding class...:", value, String(value), )
+    encodeDescriptors(value)
+}
+
+export const encodeNativeCode   = value => {
+    console.warn("\tencoding native...:", value )
+    encodeDescriptors(value)
+}
+
+export const encodePrototype    = value => {
+    console.warn("\tencoding prototype...:", value )
+    encodeDescriptors(value)
+}
+
+export const encodeConstructor  = value => {
+
+    if (Reflect.has(value, kObject) === false) {
+        const name = value.name || value.prototype[Symbol.toStringTag] || `UNKNOWN`;
+        Reflect.defineProperty(value, kObject, {value: strtoconst(name, "", "_object")});
+    }
+
+    if (Object.isPrototypeOf(value, Function)) {
+        return encodeClassExtends(value);
+    }
+
+    return encodeNativeCode(value);
+}
+
+
+export const encodeObject       = value => {
     if (!value) { return encodeEmpty(-2) }
+
     if ("buffer" in value) {
         if (ArrayBuffer.isView(value)) {
             return encodeArrayView(value)
@@ -275,59 +384,171 @@ export const encodeObject = value => {
         return new Uint8Array(memory.arrayBuffer( value ));
     }
 
+    console.group("encoding object...", value)
+    
+    const protoChain = Array.of(value);
+    
+    while (value = Object.getPrototypeOf(value)) 
+        protoChain.push( value );
+    
+    protoChain
+        .reverse()
+        .forEach(encodeDescriptors);
+    
+    console.error("prototype chain:", protoChain)
+    console.groupEnd()
+
 }
 
-export const encodeUndefined = value => {
+export const encodeUndefined    = value => {
     if (!value) { return encodeEmpty(-1) }
 }
 
-export const encodeSymbol = value => {
+export const encodeSymbol       = value => {
     return encodeString(value.description)
 }
 
+export const encodeFunction     = value => {
+    const HEADERS_BYTE_LENGTH = 12;
 
-export const encoders = Object({
-    undefined : { Object : encodeUndefined },
-    boolean : { Boolean : encodeEmpty },
-    number : { Number : encodeNumber },
-    string : { String : encodeString },
-    bigint : { BigInt : encodeBigInt },
-    symbol : { Symbol : encodeSymbol },
-    function : {},
-    object : {
-        String  : encodeString,
-        RegExp  : encodeString,
-        Number  : encodeNumber,
-        BigInt  : encodeBigInt,
-        Date    : encodeNumber,
-        Object  : encodeObject,
-        Symbol  : encodeSymbol,
-    },
-});
-
-console.warn(constructors)
-console.warn(primitives)
-console.warn(encoders)
-
-export const typeOf = (value) => {
-    const type = typeof value;
-    const kind = Object(value).constructor.name;
-    const func = encoders[ type ][ kind ] ?? encodeObject;
+    const descriptors       = Object.getOwnPropertyDescriptors(value);
+    const code              = String(value).trim();
+    const hasName           = Object.hasOwn(descriptors, "name");
+    const fullName          = hasName && Reflect.get(value, "name");
+    const isNative          = code.endsWith(`{ [native code] }`);
+    const isAsync           = /^async\s/.test(code);
+    const isConstructor     = Object.hasOwn(descriptors, "prototype");
+    const prototype         = isConstructor && Reflect.get(value, "prototype");
+    const protoConst        = isConstructor && prototype.constructor;
+    const protoConstName    = isConstructor && protoConst?.name;
+    const isGenerator       = isConstructor && /Generator/.test(protoConstName);
+    const isSymbolHandler   = /\[Symbol\.(.*)\]/.test(fullName);
+    const isGetter          = hasName && /^get\s/.test(fullName);
+    const isSetter          = hasName && /^set\s/.test(fullName);
+    const name              = fullName.substring((isGetter || isSetter) * 4); 
+    const isWASM            = isNaN(fullName) === false;
+    const argCount          = value.length;
     
-    return {
-        type : primitives[ type ],
-        kind : constructors[ kind ] || strtotype( kind ),
-        data : func(value)?.buffer,
-        value,
-    };
+    const nameBuffer        = encodeText(name).buffer;
+    const nameByteLength    = nameBuffer.byteLength;
+    const dataByteOffset    = HEADERS_BYTE_LENGTH + nameByteLength;
+
+    const dataBuffer        = encodeText(code).buffer;
+    const dataByteLength    = dataBuffer.byteLength;
+
+    const byteLength        = HEADERS_BYTE_LENGTH + nameByteLength + dataByteLength;
+    const buffer            = new ArrayBuffer(byteLength);
+
+    const headersView       = new Uint8Array(buffer, 0, HEADERS_BYTE_LENGTH);
+    const nameView          = new Uint8Array(buffer, HEADERS_BYTE_LENGTH, nameByteLength);
+    const dataView          = new Uint8Array(buffer, dataByteOffset, dataByteLength);
+
+    headersView.set([
+        isNative, isAsync,  isConstructor, isGenerator,  
+        isGetter, isSetter, isSymbolHandler, isWASM, 
+        argCount, hasName,  dataByteOffset, dataByteLength
+    ]);
+
+    nameView.set(new Uint8Array(nameBuffer));
+    dataView.set(new Uint8Array(dataBuffer));
+
+    return new Uint8Array(buffer);
+}
+
+export const extern     = new WebAssembly.Table({ initial: 1, maximum: 65536, element: 'anyref' });
+
+const pointerPrototype          = new Map();
+
+const createPointerProto        = proto => {
+    if (!proto) { return Externref; }
+
+    if (pointerPrototype.has(proto)) {
+        return pointerPrototype.get(proto);
+    }
+
+    const __proto__ = Object.getPrototypeOf(proto);
+    const ptr = createPointerProto(__proto__);
+    const __name__  = proto[Symbol.toStringTag] || proto.name || proto.constructor.name;
+    const __class__ = class extends ptr {};
+
+    Object.defineProperty( __class__, name, { value: __name__  } )
+    Object.defineProperty( __class__, Symbol.toStringTag, { value: __name__  } )
+    Object.defineProperty( __class__.prototype, Symbol.toStringTag, { value: __name__  } )
+
+    pointerPrototype.set(proto, __class__);
+    
+    return __class__;
+}
+
+const pointerReferences         = new Map();
+
+export const encodeExternref    = value => {
+    if (pointerReferences.has(value)) {
+        return pointerReferences.get(value);
+    }
+
+    console.warn("Virtualizing externref... :", value);
+
+    const protoChain = new Array();
+    
+    let prototype = value;
+    while (prototype = Object.getPrototypeOf(prototype)) {
+        protoChain.push(prototype);
+    }
+    protoChain.reverse();
+
+    const pointerProtoChain = protoChain.map(createPointerProto);
+    const constructor       = pointerProtoChain.at(-1);
+    const ptri              = Pointer.malloc(16);
+    const pointer           = Reflect.construct(constructor, [ptri]);
+
+    pointerReferences.set(value, pointer);
+
+    return pointer;
+}
+
+export const encodeBoolean      = value => {
+    return encodeEmpty(value);
+}
+
+export const encode = (value) => {
+
+    const type = primitives[ typeof value ];
+    const name = Object(value).constructor.name;
+    const kind = constructors[ name ] ??= strtoconst(name, "", "_object");
+    
+    let ptri; 
+    if (Object(value) === value) {
+        ptri = encodeExternref(value);
+        new Uint32Array(memory.buffer, +ptri, 4)
+            .set([type, kind, extern.grow(1, value)])
+    }
+    else {
+        switch (typeof value) {            
+            case "undefined"    : ptri = encodeUndefined(value); break;
+            case "boolean"      : ptri = encodeBoolean(value); break;
+            case "number"       : ptri = encodeNumber(value); break;
+            case "string"       : ptri = encodeString(value); break;
+            case "bigint"       : ptri = encodeBigInt(value); break;
+            case "symbol"       : ptri = encodeSymbol(value); break;
+            default : throw `Type of value is undefined: ${typeof value}`;
+        }
+    }
+
+    return ptri;
 }
 
 export class Pointer extends OffsetPointer {
-    get ["{{Debugger}}"] () {
-        const byteOffset = this * 1;
-        const byteLength = memory.sizeof(this);
+
+    get ["{{Debugger}}"] () { return Pointer.debug(this); }
+
+    static encode = encode
+
+    static debug (ptri) {
+        const byteOffset = ptri;
+        const byteLength = memory.sizeof(ptri);
         const byteFinish = byteOffset + byteLength;
-        const TypedArray = this.adapter;
+        const TypedArray = ptri.adapter;
         const length     = byteLength / TypedArray.BYTES_PER_ELEMENT;
         const buffer     = memory.buffer.slice(byteOffset, byteFinish);
 
@@ -339,11 +560,6 @@ export class Pointer extends OffsetPointer {
             buffer      : buffer,
             data        : new TypedArray( memory.buffer, byteOffset, length )
         };
-    }
-
-    static encode (value) {
-        const kind = typeOf(value);
-        console.log(kind);
     }
 }
 
@@ -400,11 +616,68 @@ class TypedValues extends Pointer {
     }
 
     debug () {
-        return this["{{Debugger}}"].data
+        return Pointer.debug(this).data;
     }
 }
 
-const u8 = {
+function values () {
+    const BYTES_PER_ELEMENT = this.BYTES_PER_ELEMENT;
+    const getter            = this.constructor.getter;
+    const byteLength        = memory.sizeof(this);
+
+    const done = { __proto__ : null, done: !0, value: null };
+    const data = { __proto__ : null, done: !1, value: null };
+
+    let byteOffset = (this - BYTES_PER_ELEMENT), 
+        index = byteLength / BYTES_PER_ELEMENT;
+
+    return Iterator.from({
+        next : () => {
+            if (!index--) return done; 
+
+            byteOffset += BYTES_PER_ELEMENT;
+            data.value = getter( byteOffset ); 
+            
+            return data;
+        }
+    });
+}
+
+
+function dispose () { console.debug(new Error(`Symbol.dispose not implemented: *ptr(${+this})`), this) }
+function unscopables () { console.error(new Error(`Symbol.unscopables not implemented: *ptr(${+this})`), this) }
+function species () { console.error(new Error(`Symbol.species not implemented: *ptr(${+this})`), this) }
+
+function at () {
+    const [index = 0]   = arguments;
+    
+    const dataOffset    = index * this.BYTES_PER_ELEMENT;
+    const byteOffset    = this + dataOffset;
+
+    return this.getter( byteOffset );
+}
+
+Object.defineProperties( OffsetPointer, {
+    [ Symbol.species ]              : { get : species },
+});
+
+Object.defineProperties( Pointer.prototype, {
+    [ Symbol.toStringTag ]          : { value : "Pointer" },
+    [ Symbol.dispose ]              : { value : dispose },
+    [ Symbol.unscopables ]          : { value : unscopables },
+});
+
+Object.defineProperties( TypedValues.prototype, {
+    [ Symbol.toStringTag ]          : { value : "TypedValues" },
+    [ Symbol.iterator ]             : { value : values },
+});
+
+Object.defineProperties( TypedValues.prototype, {
+    values : { value : values },
+    at : { value: at }
+});
+
+const   u8 = {
     BYTES_PER_ELEMENT : 1,
     adapter : Uint8Array,
     encoder : parseInt,
@@ -424,7 +697,7 @@ const u8 = {
     minimum : 0
 };
 
-const i8 = {   
+const   i8 = {   
     BYTES_PER_ELEMENT : 1,
     adapter : Int8Array,
     encoder : parseInt,
@@ -444,7 +717,7 @@ const i8 = {
     minimum : -128
 };
 
-const u16 = {
+const  u16 = {
     BYTES_PER_ELEMENT : 2,
     adapter : Uint16Array,
     encoder : parseInt,
@@ -464,8 +737,7 @@ const u16 = {
     minimum : 0
 };
 
-
-const i16 = {   
+const  i16 = {   
     BYTES_PER_ELEMENT : 2,
     adapter : Int16Array,
     encoder : parseInt,
@@ -485,7 +757,7 @@ const i16 = {
     minimum : -32768
 };
 
-const u32 = {
+const  u32 = {
     BYTES_PER_ELEMENT : 4,
     adapter : Uint32Array,
     encoder : parseInt,
@@ -505,7 +777,40 @@ const u32 = {
     minimum : 0
 };
 
-const i32 = {
+class Externref extends u32.TypedValues {
+
+    refindex () {  return this.at(2);}
+    type () { return memory.getUint32(+this) }
+    kind () { return memory.getUint32(this+4) }
+    deref () { return extern.get(this.refindex()) }
+
+    get [ "{{Debugger}}" ] () {
+        return {
+            ...Externref.debug(this),
+            ["{{Pointer}}"] : Pointer.debug(this)
+        }
+    }
+
+    static debug (pointer) {
+        const type = pointer.type();
+        const kind = pointer.kind();
+
+        const primitiveValues = Object.values(primitives)
+        const primitiveKeys = Object.keys(primitives)
+
+        const constructorValues = Object.values(constructors)
+        const constructorKeys = Object.keys(constructors)
+
+        return {
+            typeof : primitives[ primitiveKeys.at( primitiveValues.indexOf(type) ) ],
+            objectof : constructors[ constructorKeys.at( constructorValues.indexOf(kind) ) ], 
+            refindex : pointer.refindex(),
+            deref : pointer.deref()
+        }
+    }
+}
+
+const  i32 = {
     BYTES_PER_ELEMENT : 4,
     adapter : Int32Array,
     encoder : parseInt,
@@ -525,7 +830,7 @@ const i32 = {
     minimum : -2147483648   
 };
 
-const u64 = {
+const  u64 = {
     BYTES_PER_ELEMENT : 8,
     adapter : BigUint64Array, 
     encoder : BigInt,  
@@ -545,7 +850,7 @@ const u64 = {
     minimum : 0n    
 };
 
-const i64 = {
+const  i64 = {
     BYTES_PER_ELEMENT : 8,
     adapter : BigInt64Array,
     encoder : BigInt,
@@ -565,7 +870,7 @@ const i64 = {
     minimum : -9223372036854775808n
 };
 
-const f32 = {
+const  f32 = {
     BYTES_PER_ELEMENT : 4,
     adapter : Float32Array,
     encoder : parseFloat,
@@ -585,7 +890,7 @@ const f32 = {
     minimum : -3.4028234663852886e+38
 };
 
-const f64 = {
+const  f64 = {
     BYTES_PER_ELEMENT : 8,
     adapter : Float64Array, 
     encoder : parseFloat,
@@ -635,31 +940,19 @@ const exports = { __proto__: null,
 
 for (const type in exports) {
 
-    Object.defineProperties( exports[type].TypedValues, {
-        adapter : { value: exports[type].adapter },
-        encoder : { value: exports[type].encoder },
-        BYTES_PER_ELEMENT : { value: exports[type].BYTES_PER_ELEMENT },
-    });
-
-    Object.defineProperties( exports[type].TypedValues.prototype, {
-        adapter : { value: exports[type].adapter },
-        encoder : { value: exports[type].encoder },
-        BYTES_PER_ELEMENT : { value: exports[type].BYTES_PER_ELEMENT },
-    });
-
-    Object.defineProperties( exports[type].TypedNumber, {
-        adapter : { value: exports[type].adapter },
-        encoder : { value: exports[type].encoder },
-        BYTES_PER_ELEMENT : { value: exports[type].BYTES_PER_ELEMENT },
-    });
-
-    Object.defineProperties( exports[type].TypedNumber.prototype, {
+    const properties = {
         adapter : { value: exports[type].adapter },
         encoder : { value: exports[type].encoder },
         getter  : { value: memory[ exports[type].getter ].bind(memory) },
         setter  : { value: memory[ exports[type].setter ].bind(memory) },
         BYTES_PER_ELEMENT : { value: exports[type].BYTES_PER_ELEMENT },
-    });
+    };
+
+    Object.defineProperties( exports[type].TypedValues, properties);
+    Object.defineProperties( exports[type].TypedNumber, properties);
+
+    Object.defineProperties( exports[type].TypedNumber.prototype, properties);
+    Object.defineProperties( exports[type].TypedValues.prototype, properties);
 
     exports[ exports[type].TypedValues.name ] = exports[type].TypedValues;
     exports[ exports[type].TypedNumber.name ] = exports[type].TypedNumber;
